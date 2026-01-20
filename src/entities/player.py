@@ -1,6 +1,6 @@
 import arcade
 import random
-from roguelike_card_game.src.entities.card import Card
+from src.entities.card import Card
 
 
 class Player:
@@ -19,16 +19,62 @@ class Player:
         self.selected_card = None
         self.hand_sprites = arcade.SpriteList()
         self.has_shield_reflection = False
+        self.damage_multiplier = 1.0
+        self.damage_multiplier_turns = 0  # Оставшееся количество ходов действия множителя
+        self.heal_amount = 0  # Количество восстановления здоровья
+        self.heal_turns = 0  # Оставшееся количество ходов действия лечения
 
     def calculate_max_hp(self):
-        # Увеличиваем здоровье с каждым уровнем
         return int(self.base_max_hp + (self.level - 1) * self.base_health_per_level)
 
+    def add_experience(self, amount):
+        """Добавляет опыт игроку"""
+        self.experience += amount
+
+        # Проверяем, достигнут ли новый уровень
+        levels_gained = 0
+        while self.experience >= self.experience_to_next_level:
+            self.level_up()
+            levels_gained += 1
+            if levels_gained >= 5:
+                break
+
+        return self.experience, levels_gained
+
+    def level_up(self):
+        """Повышение уровня персонажа"""
+        self.level += 1
+        self.experience = max(0, self.experience - self.experience_to_next_level)
+
+        # Увеличиваем необходимое количество опыта для следующего уровня
+        self.experience_to_next_level = int(self.experience_to_next_level * 1.5)
+
+        # Увеличиваем максимальное здоровье
+        old_max_hp = self.max_hp
+        self.max_hp = self.calculate_max_hp()
+
+        # Восстанавливаем часть здоровья при повышении уровня
+        hp_restored = int((self.max_hp - old_max_hp) * 0.5)
+        self.current_hp = min(self.max_hp, self.current_hp + hp_restored)
+
+        return self.level
+
     def take_damage(self, amount):
-        actual_damage = max(0, amount - self.block)
+        # Применяем множитель урона от зелий
+        actual_amount = int(amount * self.damage_multiplier)
+        actual_damage = max(0, actual_amount - self.block)
         self.current_hp -= actual_damage
-        self.block = max(0, self.block - amount)
+        self.block = max(0, self.block - actual_amount)
         return actual_damage
+
+    def apply_potion_effects(self, delta_time=0):
+        """Применяет эффекты зелий каждый ход"""
+        # Лечение
+        if self.heal_turns > 0:
+            self.current_hp = min(self.max_hp, self.current_hp + self.heal_amount)
+            self.heal_turns -= 1
+            if self.heal_turns <= 0:
+                self.heal_amount = 0
 
     def add_card_to_hand(self, card: Card):
         if len(self.hand) >= 6:
@@ -52,15 +98,21 @@ class Player:
     def add_random_card(self):
         if len(self.hand) >= 6:
             return False
-        suits = ['sword', 'shield']
+
+        suits = ['sword', 'shield', 'potion']
         all_cards = []
+
         for suit in suits:
             if suit == 'shield':
                 values = range(2, 7)
-            else:
+            elif suit == 'potion':
+                values = range(2, 8)  # 2-7 включительно
+            else:  # sword
                 values = range(2, 11)
+
             for value in values:
                 all_cards.append((suit, value))
+
         available_cards = []
         for suit, value in all_cards:
             card_exists = False
@@ -70,41 +122,43 @@ class Player:
                     break
             if not card_exists:
                 available_cards.append((suit, value))
+
         if available_cards:
             suit, value = random.choice(available_cards)
             card = Card(suit, value)
             return self.add_card_to_hand(card)
+
         return False
-
-    def add_experience(self, amount):
-        """Добавляет опыт игроку"""
-        self.experience += amount
-        # Проверяем, достигнут ли новый уровень
-        levels_gained = 0
-        while self.experience >= self.experience_to_next_level:
-            self.level_up()
-            levels_gained += 1
-            if levels_gained >= 5:
-                break
-        return self.experience, levels_gained
-
-    def level_up(self):
-        """Повышение уровня персонажа"""
-        self.level += 1
-        self.experience = max(0, self.experience - self.experience_to_next_level)
-        # Увеличиваем необходимое количество опыта для следующего уровня
-        self.experience_to_next_level = int(self.experience_to_next_level * 1.5)
-        # Увеличиваем максимальное здоровье
-        old_max_hp = self.max_hp
-        self.max_hp = self.calculate_max_hp()
-        # Восстанавливаем часть здоровья при повышении уровня
-        hp_restored = int((self.max_hp - old_max_hp) * 0.5)
-        self.current_hp = min(self.max_hp, self.current_hp + hp_restored)
-        return self.level
 
     def get_card_effect(self, card: Card, base_damage_per_level=0.2, base_block_per_level=0.15):
         """Получить эффект карты с учетом уровня игрока"""
         return card.get_effect_power(self.level, base_damage_per_level, base_block_per_level)
+
+    def play_potion_card(self, card_value, player_level):
+        """Обработка карты зелья с учетом уровня игрока"""
+        if card_value == 2:
+            # Зелье 2 уровня: лечит на 50 здоровья * уровень игрока
+            heal_amount = 50 + (50 * player_level * 0.1)
+            self.current_hp = min(self.max_hp, self.current_hp + heal_amount)
+            return f"Вы выпили зелье исцеления! +{heal_amount} HP"
+
+        elif 3 <= card_value <= 6:
+            # Зелья 3-6 уровней: множитель урона на 3 хода
+            # Множитель пропорционален уровню зелья, не зависит от уровня игрока
+            multiplier = 1.0 + (card_value - 2) * 0.5  # 3 уровень: 1.5x, 4: 2.0x, 5: 2.5x, 6: 3.0x
+            self.damage_multiplier = multiplier
+            self.damage_multiplier_turns = 3
+            return f"Выпито зелье силы! Урон x{multiplier:.1f} на 3 хода"
+
+        elif card_value == 7:
+            # Зелье 7 уровня: лечит на 100 HP (не зависит от уровня) и дает множитель урона на 5 ходов
+            heal_amount = 100  # Фиксированное значение, не зависит от уровня
+            self.current_hp = min(self.max_hp, self.current_hp + heal_amount)
+            multiplier = 3.0  # Самый большой множитель
+            self.damage_multiplier = multiplier
+            self.damage_multiplier_turns = 5
+            return f"Выпито легендарное зелье! +{heal_amount} HP, Урон x{multiplier} на 5 ходов"
+        return "Неизвестное зелье"
 
     def reset_battle_stats(self):
         """Сбрасывает временные характеристики перед началом нового боя"""
@@ -113,6 +167,12 @@ class Player:
         self.hand.clear()
         self.hand_sprites.clear()
         self.selected_card = None
+
+        # Сбрасываем эффекты зелий
+        self.damage_multiplier = 1.0
+        self.damage_multiplier_turns = 0
+        self.heal_amount = 0
+        self.heal_turns = 0
 
     def save_to_db(self, db):
         """Сохранение игрока в базу данных"""

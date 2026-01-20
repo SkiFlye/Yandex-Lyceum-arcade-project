@@ -1,3 +1,3 @@
-from .window import GameWindow
+from .game_world_window import GameWorldWindow
 
-__all__ = ['GameWindow']
+__all__ = ['GameWorldWindow']

@@ -3,7 +3,7 @@ import arcade
 
 class Enemy:
     def __init__(self, name=None, base_max_hp=50, level=1,
-                 enemy_center_x=600, enemy_center_y=500, enemy_radius=60, enemy_type="goblin"):
+                 enemy_center_x=600, enemy_center_y=550, enemy_radius=60, enemy_type="goblin"):
         self.name = name
         self.level = level
         self.enemy_type = enemy_type
@@ -17,7 +17,7 @@ class Enemy:
             self.scale = 0.4
         elif enemy_type == "necromancer":
             base_hp = 150
-            self.scale = 0.8
+            self.scale = 0.4
         else:
             base_hp = 50
             self.scale = 0.4
@@ -151,7 +151,7 @@ class WorldEnemy(arcade.Sprite):
         scales = {
             "goblin": 0.15,
             "skeleton": 0.15,
-            "necromancer": 0.1}
+            "necromancer": 0.2}
         return scales.get(self.enemy_type, 0.2)
 
     def load_animation_textures(self):
