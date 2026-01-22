@@ -22,10 +22,8 @@ class BattleWindow(arcade.View):
                  base_block_per_level=0.15,
                  db=None,
                  return_callback=None):
-
         super().__init__()
         arcade.set_background_color(arcade.color.BLACK)
-
         # Сохраняем константы как атрибуты класса
         self.SCREEN_WIDTH = screen_width
         self.SCREEN_HEIGHT = screen_height
@@ -39,13 +37,11 @@ class BattleWindow(arcade.View):
         self.DECK_Y = deck_y
         self.BASE_DAMAGE_PER_LEVEL = base_damage_per_level
         self.BASE_BLOCK_PER_LEVEL = base_block_per_level
-
         # Основные объекты
         self.player = player
         self.enemy_sprite = enemy_sprite
         self.db = db
         self.return_callback = return_callback
-
         # Музыка битвы
         self.music_player = None
         self.music_volume = 0.5
@@ -58,7 +54,6 @@ class BattleWindow(arcade.View):
         self.deck_spritelist = None
         self.battle_turn = "player"
         self.battle_timer = 0
-
         # Текстовые объекты для боя
         self.deck_text = None
         self.deck_warning_text = None
@@ -69,20 +64,16 @@ class BattleWindow(arcade.View):
         self.lose_text = None
         self.return_text = None
         self.experience_gained_text = None
-
         # Эффекты зелий
         self.potion_effect_text = None
         self.potion_message_timer = 0
-
         # Настройка битвы
         self.setup_battle()
-
         # Запускаем музыку битвы
         self.play_battle_music()
 
     def play_battle_music(self):
         self.stop_music()
-
         # Загружаем и запускаем музыку битвы
         sound = arcade.load_sound("assets/battle_melody.mp3")
         if sound:
@@ -106,12 +97,10 @@ class BattleWindow(arcade.View):
         # Используем основного игрока для боя
         self.battle_player = self.player
         self.battle_player.reset_battle_stats()  # Сбрасываем временные характеристики
-
         # Используем уровень, имя и тип врага с карты мира
         enemy_level = self.enemy_sprite.level
         enemy_name = self.enemy_sprite.name
         enemy_type = self.enemy_sprite.enemy_type
-
         # Создаем врага для боя с определенным типом
         self.battle_enemy = Enemy(
             name=enemy_name,
@@ -183,13 +172,13 @@ class BattleWindow(arcade.View):
 
         self.lose_text = arcade.Text(
             "ПОРАЖЕНИЕ!",
-            self.SCREEN_WIDTH // 2, self.SCREEN_HEIGHT // 2,
+            self.SCREEN_WIDTH // 2, self.SCREEN_HEIGHT // 2 + 300,
             arcade.color.RED, 50,
             anchor_x="center", anchor_y="center")
 
         self.return_text = arcade.Text(
             "Нажмите ПРОБЕЛ для продолжения путешествия",
-            self.SCREEN_WIDTH // 2, self.SCREEN_HEIGHT // 2 - 60,
+            self.SCREEN_WIDTH // 2, self.SCREEN_HEIGHT // 2 - 310,
             arcade.color.WHITE, 24,
             anchor_x="center", anchor_y="center")
 
@@ -211,19 +200,15 @@ class BattleWindow(arcade.View):
     def position_cards(self):
         if not self.battle_player:
             return
-
         total_cards = len(self.battle_player.hand)
         if total_cards == 0:
             return
-
         distance_between_centers = self.ACTUAL_CARD_WIDTH + self.CARD_MARGIN
         group_center_x = self.SCREEN_WIDTH // 2
-
         if total_cards % 2 == 0:
             first_card_offset = -((total_cards / 2) - 0.5) * distance_between_centers
         else:
             first_card_offset = -((total_cards - 1) / 2) * distance_between_centers
-
         for i, card in enumerate(self.battle_player.hand):
             # Устанавливаем размеры карты
             card.sprite.width = self.ACTUAL_CARD_WIDTH
@@ -235,9 +220,7 @@ class BattleWindow(arcade.View):
     def enemy_attack(self):
         if not self.battle_player or not self.battle_enemy:
             return False
-
         damage = self.battle_enemy.get_attack()
-
         if self.battle_player.has_shield_reflection:
             self.battle_player.has_shield_reflection = False
             reflected_damage = damage
@@ -257,16 +240,13 @@ class BattleWindow(arcade.View):
     def play_card(self, card: Card):
         if not self.battle_player or not self.battle_enemy:
             return
-
         card_to_play = None
         for c in self.battle_player.hand:
             if c.suit == card.suit and c.value == card.value:
                 card_to_play = c
                 break
-
         if not card_to_play:
             return
-
         # Обрабатываем разные типы карт
         if card_to_play.suit == 'sword':
             # Карта атаки
@@ -282,7 +262,6 @@ class BattleWindow(arcade.View):
                 if self.battle_player.damage_multiplier_turns <= 0:
                     self.battle_player.damage_multiplier = 1.0
                     self.battle_player.damage_multiplier_turns = 0
-
             self.battle_enemy.take_damage(damage)
 
         elif card_to_play.suit == 'shield':
@@ -304,8 +283,7 @@ class BattleWindow(arcade.View):
             # Карта зелья - передаем уровень игрока
             potion_effect = self.battle_player.play_potion_card(
                 card_to_play.value,
-                self.battle_player.level  # Передаем уровень игрока
-            )
+                self.battle_player.level)
             # Выводим сообщение о эффекте зелья
             self.potion_effect_text = arcade.Text(
                 potion_effect,
@@ -313,14 +291,11 @@ class BattleWindow(arcade.View):
                 self.SCREEN_HEIGHT - 110,
                 arcade.color.CYAN,
                 20,
-                anchor_x="center"
-            )
+                anchor_x="center")
             # Сохраняем время показа сообщения
             self.potion_message_timer = 2.0  # Показывать 2 секунды
-
         # Удаляем карту из руки
         self.battle_player.remove_card_from_hand(card_to_play)
-
         # Проверяем, побежден ли враг
         if self.battle_enemy.current_hp <= 0:
             exp_gained = self.enemy_exp_value
@@ -329,14 +304,11 @@ class BattleWindow(arcade.View):
             self.levels_gained = levels_gained
             self.game_state = "win"
             return
-
         # Передаем ход врагу
         self.battle_turn = "enemy"
         self.battle_timer = 0
-
         # Перепозиционируем карты
         self.position_cards()
-
         # Если рука пустая, берем новую
         if len(self.battle_player.hand) == 0:
             self.draw_new_hand()
@@ -357,10 +329,8 @@ class BattleWindow(arcade.View):
         arcade.draw_texture_rect(self.background, arcade.rect.XYWH(
             self.SCREEN_WIDTH // 2, self.SCREEN_HEIGHT // 2,
             self.SCREEN_WIDTH, self.SCREEN_HEIGHT))
-
         # Враг
         self.battle_enemy.draw()
-
         # Колода
         self.deck_spritelist.draw()
         self.deck_text.draw()
@@ -368,10 +338,8 @@ class BattleWindow(arcade.View):
         if len(self.battle_player.hand) >= 6:
             self.deck_warning_text.value = "Полная рука!"
             self.deck_warning_text.draw()
-
         # Карты в руке
         self.battle_player.hand_sprites.draw()
-
         # Эффекты зелий
         if self.battle_player.damage_multiplier_turns > 0:
             multiplier_text = arcade.Text(
@@ -382,7 +350,6 @@ class BattleWindow(arcade.View):
                 16
             )
             multiplier_text.draw()
-
         if hasattr(self, 'potion_effect_text') and self.potion_message_timer > 0:
             self.potion_effect_text.draw()
 
@@ -396,7 +363,6 @@ class BattleWindow(arcade.View):
             f"Уровень: {self.battle_player.level} | "
             f"Опыт: {self.battle_player.experience}/{self.battle_player.experience_to_next_level}")
         self.player_level_text.draw()
-
         self.turn_text.value = f"Ход: {'Игрок' if self.battle_turn == 'player' else 'Враг'}"
         self.turn_text.draw()
 
@@ -405,7 +371,6 @@ class BattleWindow(arcade.View):
         self.win_text.draw()
         self.experience_gained_text.value = f"+{self.gained_experience} опыта"
         self.experience_gained_text.draw()
-
         if self.levels_gained > 0:
             level_up_text = arcade.Text(
                 f"НОВЫЙ УРОВЕНЬ {self.battle_player.level}!",
@@ -413,13 +378,20 @@ class BattleWindow(arcade.View):
                 arcade.color.GREEN, 32,
                 anchor_x="center", anchor_y="center")
             level_up_text.draw()
-
         self.return_text.draw()
 
     def draw_battle_lose(self):
         arcade.set_background_color(arcade.color.DARK_SLATE_GRAY)
         self.lose_text.draw()
-        self.return_text.value = "Нажмите ESC для выхода"
+        time_card_spritelist = arcade.SpriteList()
+        time_card = arcade.Sprite("images/cards/time_card.jpg")
+        time_card.width = self.ACTUAL_CARD_WIDTH * 2
+        time_card.height = self.ACTUAL_CARD_HEIGHT * 2
+        time_card.center_x = self.SCREEN_WIDTH // 2
+        time_card.center_y = self.SCREEN_HEIGHT // 2
+        time_card_spritelist.append(time_card)
+        time_card_spritelist.draw()
+        self.return_text.value = "Нет, я не погибну здесь!.."
         self.return_text.draw()
 
     def on_update(self, delta_time):
@@ -429,18 +401,15 @@ class BattleWindow(arcade.View):
     def update_battle(self, delta_time):
         if self.battle_turn == "enemy":
             self.battle_timer += delta_time
-
             if self.battle_timer >= 1.0:
                 self.enemy_attack()
                 self.battle_timer = 0
                 self.battle_turn = "player"
-
         # Обновляем таймер сообщения о зелье
         if hasattr(self, 'potion_message_timer'):
             self.potion_message_timer -= delta_time
             if self.potion_message_timer <= 0:
                 self.potion_message_timer = 0
-
         # Применяем эффекты зелий каждый ход
         if self.battle_player:
             self.battle_player.apply_potion_effects(delta_time)
@@ -482,7 +451,6 @@ class BattleWindow(arcade.View):
             # Сохраняем игру и возвращаемся в мир
             if self.db and self.player:
                 self.player.save_to_db(self.db)
-
             if self.return_callback:
                 self.return_callback(self.player, enemy_defeated=True, enemy_exp_value=self.enemy_exp_value)
 
@@ -491,6 +459,21 @@ class BattleWindow(arcade.View):
             arcade.close_window()
 
     def on_mouse_press(self, x, y, button, modifiers):
+        if self.game_state == "lose":
+            card_center_x = self.SCREEN_WIDTH // 2
+            card_center_y = self.SCREEN_HEIGHT // 2 - 100
+            card_width = self.ACTUAL_CARD_WIDTH * 2
+            card_height = self.ACTUAL_CARD_HEIGHT * 2
+            left = card_center_x - card_width / 2
+            right = card_center_x + card_width / 2
+            top = card_center_y + card_height / 2
+            bottom = card_center_y - card_height / 2
+            if left <= x <= right and bottom <= y <= top:
+                if self.return_callback:
+                    self.player.current_hp = self.player.max_hp
+                    self.return_callback(self.player, enemy_defeated=False, respawn=True)
+            return
+
         if self.game_state != "battle":
             return
 
@@ -511,7 +494,6 @@ class BattleWindow(arcade.View):
             right = sprite.center_x + self.ACTUAL_CARD_WIDTH / 2
             bottom = sprite.center_y - self.ACTUAL_CARD_HEIGHT / 2
             top = sprite.center_y + self.ACTUAL_CARD_HEIGHT / 2
-
             if left <= x <= right and bottom <= y <= top:
                 self.battle_player.selected_card = card
                 self.play_card(card)
