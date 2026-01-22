@@ -7,6 +7,7 @@ from src.data.database import GameDatabase
 from src.entities.player import WorldPlayer, Player
 from src.entities.enemy import WorldEnemy
 from src.game.battle_window import BattleWindow
+from src.game.dungeon_window import DungeonWindow
 
 
 class GameWorldWindow(arcade.View):
@@ -24,10 +25,8 @@ class GameWorldWindow(arcade.View):
                  base_block_per_level=0.15,
                  db_name="data/game_save.db",
                  player=None):
-
         super().__init__()
         arcade.set_background_color(arcade.color.BLACK)
-
         # Сохраняем константы как атрибуты класса
         self.SCREEN_WIDTH = screen_width
         self.SCREEN_HEIGHT = screen_height
@@ -40,14 +39,11 @@ class GameWorldWindow(arcade.View):
         self.BASE_DAMAGE_PER_LEVEL = base_damage_per_level
         self.BASE_BLOCK_PER_LEVEL = base_block_per_level
         self.DB_NAME = db_name
-
         # Инициализация базы данных
         self.db = GameDatabase(db_name)
         self.player_name = player_name or "Player"
-
         # Основной объект игрока
         self.player = player
-
         # Музыка мира
         self.music_player = None
         self.music_volume = 0.4
@@ -68,7 +64,6 @@ class GameWorldWindow(arcade.View):
         self.enemy_sprites = arcade.SpriteList()
         self.cave_entrance_sprites = arcade.SpriteList()
         self.world_instruction_texts = []
-
         # Если игрок не передан, создаем нового или загружаем
         if not self.player:
             self.player = Player(
@@ -76,31 +71,25 @@ class GameWorldWindow(arcade.View):
                 base_max_hp=100,
                 base_health_per_level=self.BASE_HEALTH_PER_LEVEL,
                 experience_to_next_level=100)
-
             # Пытаемся загрузить сохранение
             if not self.player.load_from_db(self.db):
                 print("Создан новый персонаж Player")
             else:
                 print(f"Загружен сохраненный персонаж: {self.player.name} (Ур.{self.player.level})")
-
         # Текстовые объекты для мира
         self.world_player_stats_text = None
-
         # Настройка мира
         self.setup_world()
-
         # Запускаем музыку мира
         self.play_world_music()
 
     def play_world_music(self):
         """Запускает музыку для мира"""
         self.stop_music()
-
         # Загружаем и запускаем музыку мира
         sound = arcade.load_sound("assets/world_melody.mp3")
         if sound:
             self.music_player = sound.play(volume=self.music_volume, loop=True)
-
 
     def stop_music(self):
         """Останавливает музыку"""
@@ -121,7 +110,6 @@ class GameWorldWindow(arcade.View):
         # Загружаем карту
         self.tile_map = arcade.load_tilemap("level1.tmx", scaling=self.TILE_SCALING)
         self.scene = arcade.Scene.from_tilemap(self.tile_map)
-
         # Устанавливаем границы карты
         self.map_left = 0
         self.map_bottom = 0
@@ -129,33 +117,26 @@ class GameWorldWindow(arcade.View):
         self.map_top = self.tile_map.height * self.tile_map.tile_height * self.TILE_SCALING
         self.world_width = self.map_right
         self.world_height = self.map_top
-
         # Создаем игрока
         self.world_player = WorldPlayer(
             player_scale=self.PLAYER_SCALE,
             player_speed=self.PLAYER_SPEED)
         self.world_player.scale = 0.15
-
         # Создаем SpriteList для игрока
         self.world_player_sprite_list = arcade.SpriteList()
         self.world_player_sprite_list.append(self.world_player)
-
         # Устанавливаем позицию игрока на точку спавна
         spawn_point = self.scene["spawn"][0]
         self.world_player.center_x = spawn_point.center_x
         self.world_player.center_y = spawn_point.center_y
-
         # Устанавливаем начальную позицию камеры на игрока
         self.world_camera.position = (
             self.world_player.center_x - self.SCREEN_WIDTH / 2,
             self.world_player.center_y - self.SCREEN_HEIGHT / 2)
-
         # Создаем врагов
         self.create_enemies()
-
         for sprite in self.scene["cave_entrance"]:
             self.cave_entrance_sprites.append(sprite)
-
         # Создаем физический движок с слоем collision
         self.physics_engine = arcade.PhysicsEngineSimple(
             self.world_player,
@@ -172,7 +153,6 @@ class GameWorldWindow(arcade.View):
                         arcade.color.WHITE, 14),
             arcade.Text("ESC - выход, F5 - сохранить игру", 10, self.SCREEN_HEIGHT - 80,
                         arcade.color.WHITE, 14)]
-
         # Отображение характеристик игрока в мире
         self.world_player_stats_text = arcade.Text(
             "",
@@ -370,9 +350,31 @@ class GameWorldWindow(arcade.View):
 
         cave_hits = arcade.check_for_collision_with_list(self.world_player, self.cave_entrance_sprites)
         if cave_hits:
-            print("Вход в пещеру! Уровень 2 будет добавлен позже.")
-
+            self.enter_dungeon()
         self.update_camera(delta_time)
+
+    def enter_dungeon(self):
+        """Переход в подземелье"""
+        # Останавливаем музыку мира
+        self.stop_music()
+
+        dungeon_window = DungeonWindow(
+            screen_width=self.SCREEN_WIDTH,
+            screen_height=self.SCREEN_HEIGHT,
+            player_name=self.player.name,
+            player_scale=self.PLAYER_SCALE,
+            player_speed=self.PLAYER_SPEED,
+            enemy_radius=self.ENEMY_RADIUS,
+            tile_scaling=self.TILE_SCALING,
+            camera_lerp=self.CAMERA_LERP,
+            base_health_per_level=self.BASE_HEALTH_PER_LEVEL,
+            base_damage_per_level=self.BASE_DAMAGE_PER_LEVEL,
+            base_block_per_level=self.BASE_BLOCK_PER_LEVEL,
+            db_name=self.DB_NAME,
+            player=self.player)
+
+        dungeon_window.setup()
+        self.window.show_view(dungeon_window)
 
     def update_camera(self, delta_time=0):
         """Обновление камеры с плавным слежением и ограничением границ"""
@@ -416,9 +418,6 @@ class GameWorldWindow(arcade.View):
     def on_key_release(self, key, modifiers):
         if key in self.keys_pressed:
             self.keys_pressed.remove(key)
-
-    def on_mouse_press(self, x, y, button, modifiers):
-        pass
 
     def save_game(self):
         """Сохраняет игру в базу данных"""

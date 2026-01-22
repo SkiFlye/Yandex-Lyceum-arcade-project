@@ -138,23 +138,20 @@ class Player:
         """Обработка карты зелья с учетом уровня игрока"""
         if card_value == 2:
             # Зелье 2 уровня: лечит на 50 здоровья * уровень игрока
-            heal_amount = 50 + (50 * player_level * 0.1)
+            heal_amount = int(50 + (50 * player_level * 0.1))
             self.current_hp = min(self.max_hp, self.current_hp + heal_amount)
             return f"Вы выпили зелье исцеления! +{heal_amount} HP"
 
         elif 3 <= card_value <= 6:
-            # Зелья 3-6 уровней: множитель урона на 3 хода
-            # Множитель пропорционален уровню зелья, не зависит от уровня игрока
-            multiplier = 1.0 + (card_value - 2) * 0.5  # 3 уровень: 1.5x, 4: 2.0x, 5: 2.5x, 6: 3.0x
+            multiplier = 1.0 + (card_value - 2) * 0.5
             self.damage_multiplier = multiplier
             self.damage_multiplier_turns = 3
             return f"Выпито зелье силы! Урон x{multiplier:.1f} на 3 хода"
 
         elif card_value == 7:
-            # Зелье 7 уровня: лечит на 100 HP (не зависит от уровня) и дает множитель урона на 5 ходов
-            heal_amount = 100  # Фиксированное значение, не зависит от уровня
+            heal_amount = 100
             self.current_hp = min(self.max_hp, self.current_hp + heal_amount)
-            multiplier = 3.0  # Самый большой множитель
+            multiplier = 3.0
             self.damage_multiplier = multiplier
             self.damage_multiplier_turns = 5
             return f"Выпито легендарное зелье! +{heal_amount} HP, Урон x{multiplier} на 5 ходов"
@@ -167,7 +164,6 @@ class Player:
         self.hand.clear()
         self.hand_sprites.clear()
         self.selected_card = None
-
         # Сбрасываем эффекты зелий
         self.damage_multiplier = 1.0
         self.damage_multiplier_turns = 0
