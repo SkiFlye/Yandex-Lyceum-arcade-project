@@ -18,6 +18,15 @@ class Enemy:
         elif enemy_type == "necromancer":
             base_hp = 150
             self.scale = 0.4
+        elif enemy_type == "ghost":
+            base_hp = 120
+            self.scale = 0.35
+        elif enemy_type == "minotaur":
+            base_hp = 300
+            self.scale = 0.6
+        elif enemy_type == "card_master":
+            base_hp = 500
+            self.scale = 0.5
         else:
             base_hp = 50
             self.scale = 0.4
@@ -32,6 +41,12 @@ class Enemy:
             attack_base = 1.5
         elif enemy_type == "necromancer":
             attack_base = 2.5
+        elif enemy_type == "ghost":
+            attack_base = 2.0
+        elif enemy_type == "minotaur":
+            attack_base = 3.0
+        elif enemy_type == "card_master":
+            attack_base = 4.0
         else:
             attack_base = 1.0
 
@@ -151,7 +166,10 @@ class WorldEnemy(arcade.Sprite):
         scales = {
             "goblin": 0.15,
             "skeleton": 0.15,
-            "necromancer": 0.2}
+            "necromancer": 0.2,
+            "ghost": 0.12,
+            "minotaur": 0.25,
+            "card_master": 0.18}
         return scales.get(self.enemy_type, 0.2)
 
     def load_animation_textures(self):
