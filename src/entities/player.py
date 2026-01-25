@@ -179,9 +179,9 @@ class Player:
             self.max_hp,
             self.current_hp)
 
-    def load_from_db(self, db):
+    def load_from_db(self, db, player_name):
         """Загрузка игрока из базы данных"""
-        data = db.load_player()
+        data = db.load_player(player_name)
         if data:
             self.name = data['name']
             self.level = data['level']

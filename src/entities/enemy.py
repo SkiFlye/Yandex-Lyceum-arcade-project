@@ -23,7 +23,7 @@ class Enemy:
             self.scale = 0.35
         elif enemy_type == "minotaur":
             base_hp = 300
-            self.scale = 0.6
+            self.scale = 0.4
         elif enemy_type == "card_master":
             base_hp = 500
             self.scale = 0.5

@@ -64,7 +64,6 @@ class GameWorldWindow(arcade.View):
         self.enemy_sprites = arcade.SpriteList()
         self.cave_entrance_sprites = arcade.SpriteList()
         self.world_instruction_texts = []
-        # Если игрок не передан, создаем нового или загружаем
         if not self.player:
             self.player = Player(
                 name=self.player_name,
@@ -72,7 +71,7 @@ class GameWorldWindow(arcade.View):
                 base_health_per_level=self.BASE_HEALTH_PER_LEVEL,
                 experience_to_next_level=100)
             # Пытаемся загрузить сохранение
-            if not self.player.load_from_db(self.db):
+            if not self.player.load_from_db(self.db, self.player_name):
                 print("Создан новый персонаж Player")
             else:
                 print(f"Загружен сохраненный персонаж: {self.player.name} (Ур.{self.player.level})")
@@ -149,7 +148,7 @@ class GameWorldWindow(arcade.View):
         self.world_instruction_texts = [
             arcade.Text("Управление: WASD или стрелки", 10, self.SCREEN_HEIGHT - 30,
                         arcade.color.WHITE, 14),
-            arcade.Text("Подойдите к врагу (красный квадрат) для начала боя", 10, self.SCREEN_HEIGHT - 55,
+            arcade.Text("Подойдите к врагу для начала боя", 10, self.SCREEN_HEIGHT - 55,
                         arcade.color.WHITE, 14),
             arcade.Text("ESC - выход, F5 - сохранить игру", 10, self.SCREEN_HEIGHT - 80,
                         arcade.color.WHITE, 14)]
@@ -220,11 +219,17 @@ class GameWorldWindow(arcade.View):
         battle_window.setup()
         self.window.show_view(battle_window)
 
-    def return_from_battle(self, player, enemy_defeated=True, enemy_exp_value=0):
+    def return_from_battle(self, player, enemy_defeated=True, enemy_exp_value=0, respawn=False):
         """Возвращение из битвы в мир"""
         self.keys_pressed.clear()
         self.player = player
-
+        if respawn:
+            # Возвращаем героя на точку спавна в подземелье
+            spawn_point = self.scene["spawn"][0]
+            self.world_player.center_x = spawn_point.center_x
+            self.world_player.center_y = spawn_point.center_y
+            # Сбрасываем здоровье
+            self.player.current_hp = self.player.max_hp
         # Если враг побежден, удаляем его с карты
         if enemy_defeated:
             enemy_sprite_to_remove = None

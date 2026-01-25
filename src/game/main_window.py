@@ -15,7 +15,7 @@ class MainWindow(arcade.View):
         self.ui_manager = UIManager()
 
         # Состояния
-        self.current_screen = "auth"  # "auth" - авторизация, "menu" - главное меню
+        self.current_screen = "auth"
         self.error_message = ""
         self.info_message = ""
 
@@ -45,14 +45,7 @@ class MainWindow(arcade.View):
     def setup(self):
         """Настройка окна меню"""
         self.background = arcade.load_texture("images/main_background.jpg")
-
-        # Включаем UI менеджер
-        self.ui_manager.enable()
-
-        # Настраиваем экран авторизации
         self.setup_auth_screen()
-
-        # Запускаем музыку
         self.play_music()
 
     def play_music(self):
@@ -70,31 +63,26 @@ class MainWindow(arcade.View):
 
     def on_show_view(self):
         """Вызывается при показе этого View (когда переходим на это окно)"""
-        # При показе окна запускаем музыку
+        # Включаем UI менеджер при показе окна
+        self.ui_manager.enable()
         self.play_music()
 
     def on_hide_view(self):
         """Вызывается при скрытии этого View (когда уходим с этого окна)"""
-        # При скрытии окна останавливаем музыку
+        # ВАЖНО: Отключаем UI менеджер при скрытии окна
+        self.ui_manager.disable()
         self.stop_music()
 
     def clear_ui(self):
         """Очищает все UI элементы"""
-        # Отключаем все UI элементы
-        for element in self.ui_elements:
-            if hasattr(element, 'kill'):
-                element.kill()  # Для UI элементов
-            else:
-                self.ui_manager.remove(element)
-        self.ui_elements.clear()
+        # Очищаем менеджер UI
+        self.ui_manager.clear()
 
         # Очищаем ссылки
         self.name_input = None
         self.password_input = None
         self.buttons.clear()
-
-        # Очищаем менеджер UI
-        self.ui_manager.clear()
+        self.ui_elements.clear()
 
     def setup_auth_screen(self):
         """Настройка экрана авторизации"""
@@ -148,7 +136,6 @@ class MainWindow(arcade.View):
             font_size=18
         )
         self.ui_manager.add(self.name_input)
-        self.ui_elements.append(self.name_input)
 
         # Поле для пароля
         password_label = arcade.Text(
@@ -172,7 +159,6 @@ class MainWindow(arcade.View):
             password_char="*"  # Скрывает ввод пароля
         )
         self.ui_manager.add(self.password_input)
-        self.ui_elements.append(self.password_input)
 
         # Кнопка "Войти"
         login_button = UITextureButton(
@@ -185,7 +171,6 @@ class MainWindow(arcade.View):
         )
         login_button.on_click = self.on_login_click
         self.ui_manager.add(login_button)
-        self.ui_elements.append(login_button)
         self.buttons.append(login_button)
 
         # Кнопка "Создать героя"
@@ -199,7 +184,6 @@ class MainWindow(arcade.View):
         )
         create_button.on_click = self.on_create_click
         self.ui_manager.add(create_button)
-        self.ui_elements.append(create_button)
         self.buttons.append(create_button)
 
         # Кнопка "Выход"
@@ -213,7 +197,6 @@ class MainWindow(arcade.View):
         )
         exit_button.on_click = self.on_exit_click
         self.ui_manager.add(exit_button)
-        self.ui_elements.append(exit_button)
         self.buttons.append(exit_button)
 
     def setup_menu_screen(self):
@@ -258,7 +241,6 @@ class MainWindow(arcade.View):
         )
         start_button.on_click = self.on_start_game_click
         self.ui_manager.add(start_button)
-        self.ui_elements.append(start_button)
         self.buttons.append(start_button)
 
         # Кнопка "Выйти из аккаунта"
@@ -272,7 +254,6 @@ class MainWindow(arcade.View):
         )
         logout_button.on_click = self.on_logout_click
         self.ui_manager.add(logout_button)
-        self.ui_elements.append(logout_button)
         self.buttons.append(logout_button)
 
     def check_hero_exists(self, username, password):
@@ -306,8 +287,7 @@ class MainWindow(arcade.View):
         cursor = conn.cursor()
 
         # Создаем таблицу если её нет
-        cursor.execute('''
-                        CREATE TABLE IF NOT EXISTS passwords (
+        cursor.execute('''CREATE TABLE IF NOT EXISTS passwords (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             name TEXT UNIQUE NOT NULL,
                             password TEXT NOT NULL)''')
@@ -380,6 +360,9 @@ class MainWindow(arcade.View):
         # Останавливаем музыку главного меню
         self.stop_music()
 
+        # ВАЖНО: Отключаем UI менеджер перед переходом
+        self.ui_manager.disable()
+
         # Создаем окно игры с именем авторизованного пользователя
         game_view = GameWorldWindow(
             screen_width=1200,
@@ -416,15 +399,14 @@ class MainWindow(arcade.View):
                 self.window.height // 2,
                 self.window.width,
                 self.window.height))
+        # Рисуем полупрозрачную панель
         arcade.draw_rect_filled(
-            arcade.rect.XYWH(self.window.width // 2, self.window.height - 370, 600, 300), (0, 0, 0, 200))
-
+            arcade.rect.XYWH(self.window.width // 2, self.window.height - 370, 600, 300),
+            (0, 0, 0, 200))
         # Рисуем текстовые элементы
         for element in self.ui_elements:
             if isinstance(element, arcade.Text):
                 element.draw()
-
-        # Рисуем сообщения об ошибках/информационные
         if self.error_message:
             arcade.draw_text(
                 self.error_message,
@@ -434,8 +416,7 @@ class MainWindow(arcade.View):
                 18,
                 anchor_x="center",
                 anchor_y="center",
-                bold=True
-            )
+                bold=True)
         self.ui_manager.draw()
 
     def on_key_press(self, key, modifiers):
