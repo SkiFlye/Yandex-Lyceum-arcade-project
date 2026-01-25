@@ -1,4 +1,6 @@
 import arcade
+import random
+from arcade.particles import FadeParticle, Emitter, EmitBurst
 
 from src.entities.card import Card
 from src.entities.enemy import Enemy
@@ -24,7 +26,6 @@ class BattleWindow(arcade.View):
                  return_callback=None):
         super().__init__()
         arcade.set_background_color(arcade.color.BLACK)
-        # Сохраняем константы как атрибуты класса
         self.SCREEN_WIDTH = screen_width
         self.SCREEN_HEIGHT = screen_height
         self.ACTUAL_CARD_WIDTH = actual_card_width
@@ -45,6 +46,13 @@ class BattleWindow(arcade.View):
         # Музыка битвы
         self.music_player = None
         self.music_volume = 0.5
+        # Эмиттеры для желтых частиц (при клике)
+        self.click_emitters = []
+        self.yellow_textures = []
+        # Кэш для оптимизации
+        self.background_texture = None
+        self.deck_texture = None
+        self.time_card_texture = None
 
     def setup(self):
         self.game_state = "battle"  # "battle", "win", "lose"
@@ -54,6 +62,7 @@ class BattleWindow(arcade.View):
         self.deck_spritelist = None
         self.battle_turn = "player"
         self.battle_timer = 0
+
         # Текстовые объекты для боя
         self.deck_text = None
         self.deck_warning_text = None
@@ -64,17 +73,64 @@ class BattleWindow(arcade.View):
         self.lose_text = None
         self.return_text = None
         self.experience_gained_text = None
+
         # Эффекты зелий
         self.potion_effect_text = None
         self.potion_message_timer = 0
+
+        # Очищаем старые эмиттеры
+        self.click_emitters.clear()
+
+        # Создаем текстуры для желтых частиц
+        self.create_yellow_textures()
+
         # Настройка битвы
         self.setup_battle()
+
         # Запускаем музыку битвы
         self.play_battle_music()
 
+    def create_yellow_textures(self):
+        """Создает текстуры для желтых частиц (легкие версии)"""
+        yellow_colors = [
+            arcade.color.YELLOW,
+            arcade.color.GOLD,
+            arcade.color.ORANGE,]
+
+        self.yellow_textures.clear()
+        # Создаем очень маленькие текстуры (4-6 пикселей)
+        for color in yellow_colors:
+            size = random.randint(4, 6)
+            texture = arcade.make_soft_circle_texture(size, color, 180, 0)
+            self.yellow_textures.append(texture)
+
+    def create_yellow_particles(self, x, y):
+        """Создает эмиттер желтых частиц"""
+        # Ограничиваем количество активных эмиттеров
+        if len(self.click_emitters) >= 3:
+            oldest = self.click_emitters.pop(0)
+        # Мутатор для быстрого исчезновения
+        def particle_mutator(particle):
+            particle.alpha = max(0, particle.alpha - 15)  # Быстро исчезает
+        # Создаем эмиттер с минимальным количеством частиц
+        emitter = Emitter(
+            center_xy=(x, y),
+            emit_controller=EmitBurst(15),
+            particle_factory=lambda e: FadeParticle(
+                filename_or_texture=random.choice(self.yellow_textures),
+                change_xy=arcade.math.rand_in_circle((0.0, 0.0), 3.0),  # Медленно разлетаются
+                lifetime=random.uniform(0.3, 0.5),  # Очень быстро исчезают
+                start_alpha=255,
+                end_alpha=0,
+                scale=3.0,
+                mutation_callback=particle_mutator,
+            ),
+        )
+
+        return emitter
+
     def play_battle_music(self):
         self.stop_music()
-        # Загружаем и запускаем музыку битвы
         sound = arcade.load_sound("assets/battle_melody.mp3")
         if sound:
             self.music_player = sound.play(volume=self.music_volume, loop=True)
@@ -85,23 +141,35 @@ class BattleWindow(arcade.View):
             self.music_player = None
 
     def on_show_view(self):
-        """Вызывается при показе этого View"""
         self.play_battle_music()
 
     def on_hide_view(self):
-        """Вызывается при скрытии этого View"""
         self.stop_music()
+        # Очищаем все эмиттеры при скрытии
+        self.click_emitters.clear()
+
+    def cleanup_sprites(self):
+        self.deck_spritelist = None
+        self.battle_enemy = None
+        self.deck_sprite = None
+        self.background_texture = None
+        self.click_emitters.clear()
 
     def setup_battle(self):
-        """Настройка битвы"""
-        # Используем основного игрока для боя
+        """Оптимизированная настройка битвы"""
+        self.background_texture = arcade.load_texture('images/battle_background.jpg')
+        self.deck_texture = arcade.load_texture("images/cards/inverted_card.jpg")
+        self.time_card_texture = arcade.load_texture("images/cards/time_card.jpg")
+
+        # Используем игрока
         self.battle_player = self.player
-        self.battle_player.reset_battle_stats()  # Сбрасываем временные характеристики
-        # Используем уровень, имя и тип врага с карты мира
+        self.battle_player.reset_battle_stats()
+
+        # Создаем врага
         enemy_level = self.enemy_sprite.level
         enemy_name = self.enemy_sprite.name
         enemy_type = self.enemy_sprite.enemy_type
-        # Создаем врага для боя с определенным типом
+
         self.battle_enemy = Enemy(
             name=enemy_name,
             level=enemy_level,
@@ -109,29 +177,34 @@ class BattleWindow(arcade.View):
             enemy_center_y=self.ENEMY_CENTER_Y,
             enemy_radius=60,
             enemy_type=enemy_type)
-        self.battle_enemy.create_text_object()
 
-        # Сохраняем опыт, который даст враг
+        if hasattr(self.battle_enemy, 'create_text_object'):
+            self.battle_enemy.create_text_object()
+        # Сохраняем опыт
         if enemy_type == "necromancer":
-            self.enemy_exp_value = self.enemy_sprite.exp_value * 3  # Босс дает в 3 раза больше опыта
+            self.enemy_exp_value = self.enemy_sprite.exp_value * 3
         elif enemy_type == "skeleton":
-            self.enemy_exp_value = self.enemy_sprite.exp_value * 2  # Скелет дает в 2 раза больше опыта
+            self.enemy_exp_value = self.enemy_sprite.exp_value * 2
         else:
             self.enemy_exp_value = self.enemy_sprite.exp_value
-
         self.deck_spritelist = arcade.SpriteList()
-        self.deck_sprite = arcade.Sprite("images/cards/inverted_card.jpg")
+        self.deck_sprite = arcade.Sprite(self.deck_texture)
+
         self.deck_sprite.width = self.ACTUAL_CARD_WIDTH
         self.deck_sprite.height = self.ACTUAL_CARD_HEIGHT
         self.deck_sprite.center_x = self.DECK_X
         self.deck_sprite.center_y = self.DECK_Y
         self.deck_spritelist.append(self.deck_sprite)
 
+        # Инициализируем руку
         self.draw_new_hand()
         self.position_cards()
+
+        # Настройка состояния битвы
         self.battle_timer = 0
         self.battle_turn = "player"
 
+        # Создаем текстовые объекты
         self.create_battle_text_objects()
 
     def create_battle_text_objects(self):
@@ -189,47 +262,67 @@ class BattleWindow(arcade.View):
             anchor_x="center", anchor_y="center")
 
     def draw_new_hand(self):
+        """Оптимизированное создание руки"""
         if not self.battle_player:
             return
-        self.battle_player.hand.clear()
-        self.battle_player.hand_sprites.clear()
+
+        # Очищаем старые спрайты
+        if hasattr(self.battle_player, 'hand_sprites'):
+            self.battle_player.hand_sprites.clear()
+
+        if hasattr(self.battle_player, 'hand'):
+            self.battle_player.hand.clear()
+
         self.battle_player.has_shield_reflection = False
+
+        # Создаем карты
         for _ in range(6):
             self.battle_player.add_random_card()
 
     def position_cards(self):
-        if not self.battle_player:
+        """Оптимизированное позиционирование карт"""
+        if not self.battle_player or not hasattr(self.battle_player, 'hand'):
             return
+
         total_cards = len(self.battle_player.hand)
         if total_cards == 0:
             return
+
+        # Вычисляем позиции
         distance_between_centers = self.ACTUAL_CARD_WIDTH + self.CARD_MARGIN
         group_center_x = self.SCREEN_WIDTH // 2
+
         if total_cards % 2 == 0:
             first_card_offset = -((total_cards / 2) - 0.5) * distance_between_centers
         else:
             first_card_offset = -((total_cards - 1) / 2) * distance_between_centers
+
+        # Устанавливаем позиции
         for i, card in enumerate(self.battle_player.hand):
-            # Устанавливаем размеры карты
-            card.sprite.width = self.ACTUAL_CARD_WIDTH
-            card.sprite.height = self.ACTUAL_CARD_HEIGHT
-            card_center_x = group_center_x + first_card_offset + (i * distance_between_centers)
-            card.sprite.center_x = card_center_x
-            card.sprite.center_y = self.HAND_Y
+            if hasattr(card, 'sprite') and card.sprite:
+                card.sprite.width = self.ACTUAL_CARD_WIDTH
+                card.sprite.height = self.ACTUAL_CARD_HEIGHT
+                card_center_x = group_center_x + first_card_offset + (i * distance_between_centers)
+                card.sprite.center_x = card_center_x
+                card.sprite.center_y = self.HAND_Y
 
     def enemy_attack(self):
+        """Упрощенная атака врага"""
         if not self.battle_player or not self.battle_enemy:
             return False
+
         damage = self.battle_enemy.get_attack()
+
         if self.battle_player.has_shield_reflection:
             self.battle_player.has_shield_reflection = False
-            reflected_damage = damage
-            self.battle_enemy.take_damage(reflected_damage)
+            self.battle_enemy.take_damage(damage)
+
             if self.battle_enemy.current_hp <= 0:
                 self.game_state = "win"
                 return True
         else:
             actual_damage = self.battle_player.take_damage(damage)
+
             if self.battle_player.current_hp <= 0:
                 self.game_state = "lose"
                 return True
@@ -238,18 +331,22 @@ class BattleWindow(arcade.View):
         return False
 
     def play_card(self, card: Card):
+        """Оптимизированный розыгрыш карты"""
         if not self.battle_player or not self.battle_enemy:
             return
+
+        # Находим карту
         card_to_play = None
         for c in self.battle_player.hand:
             if c.suit == card.suit and c.value == card.value:
                 card_to_play = c
                 break
+
         if not card_to_play:
             return
-        # Обрабатываем разные типы карт
+
+        # Обрабатываем карту
         if card_to_play.suit == 'sword':
-            # Карта атаки
             effect = self.battle_player.get_card_effect(
                 card_to_play,
                 self.BASE_DAMAGE_PER_LEVEL,
@@ -262,10 +359,10 @@ class BattleWindow(arcade.View):
                 if self.battle_player.damage_multiplier_turns <= 0:
                     self.battle_player.damage_multiplier = 1.0
                     self.battle_player.damage_multiplier_turns = 0
+
             self.battle_enemy.take_damage(damage)
 
         elif card_to_play.suit == 'shield':
-            # Карта защиты
             effect = self.battle_player.get_card_effect(
                 card_to_play,
                 self.BASE_DAMAGE_PER_LEVEL,
@@ -280,11 +377,11 @@ class BattleWindow(arcade.View):
                 self.battle_player.block += block
 
         elif card_to_play.suit == 'potion':
-            # Карта зелья - передаем уровень игрока
             potion_effect = self.battle_player.play_potion_card(
                 card_to_play.value,
                 self.battle_player.level)
-            # Выводим сообщение о эффекте зелья
+
+            # Сообщение о зелье
             self.potion_effect_text = arcade.Text(
                 potion_effect,
                 self.SCREEN_WIDTH // 2,
@@ -292,11 +389,12 @@ class BattleWindow(arcade.View):
                 arcade.color.CYAN,
                 20,
                 anchor_x="center")
-            # Сохраняем время показа сообщения
-            self.potion_message_timer = 2.0  # Показывать 2 секунды
-        # Удаляем карту из руки
+            self.potion_message_timer = 2.0
+
+        # Удаляем карту
         self.battle_player.remove_card_from_hand(card_to_play)
-        # Проверяем, побежден ли враг
+
+        # Проверяем победу
         if self.battle_enemy.current_hp <= 0:
             exp_gained = self.enemy_exp_value
             new_exp, levels_gained = self.battle_player.add_experience(exp_gained)
@@ -304,18 +402,23 @@ class BattleWindow(arcade.View):
             self.levels_gained = levels_gained
             self.game_state = "win"
             return
-        # Передаем ход врагу
+
+        # Переход хода
         self.battle_turn = "enemy"
         self.battle_timer = 0
-        # Перепозиционируем карты
+
+        # Обновляем позиции
         self.position_cards()
-        # Если рука пустая, берем новую
+
+        # Если рука пуста - новая рука
         if len(self.battle_player.hand) == 0:
             self.draw_new_hand()
             self.position_cards()
 
     def on_draw(self):
+        """Оптимизированная отрисовка"""
         self.clear()
+
         if self.game_state == "battle":
             self.draw_battle()
         elif self.game_state == "win":
@@ -324,53 +427,65 @@ class BattleWindow(arcade.View):
             self.draw_battle_lose()
 
     def draw_battle(self):
-        # Фон битвы
-        self.background = arcade.load_texture('images/battle_background.jpg')
-        arcade.draw_texture_rect(self.background, arcade.rect.XYWH(
-            self.SCREEN_WIDTH // 2, self.SCREEN_HEIGHT // 2,
-            self.SCREEN_WIDTH, self.SCREEN_HEIGHT))
-        # Враг
-        self.battle_enemy.draw()
-        # Колода
-        self.deck_spritelist.draw()
-        self.deck_text.draw()
+        if self.background_texture:
+            arcade.draw_texture_rect(self.background_texture, arcade.rect.XYWH(
+                self.SCREEN_WIDTH // 2, self.SCREEN_HEIGHT // 2,
+                self.SCREEN_WIDTH, self.SCREEN_HEIGHT))
 
-        if len(self.battle_player.hand) >= 6:
+        # Враг
+        if self.battle_enemy:
+            self.battle_enemy.draw()
+
+        # Колода
+        if self.deck_spritelist:
+            self.deck_spritelist.draw()
+            self.deck_text.draw()
+        if self.battle_player and len(self.battle_player.hand) >= 6:
             self.deck_warning_text.value = "Полная рука!"
             self.deck_warning_text.draw()
+
         # Карты в руке
-        self.battle_player.hand_sprites.draw()
+        if hasattr(self.battle_player, 'hand_sprites'):
+            self.battle_player.hand_sprites.draw()
+
+        # Желтые частицы (поверх всего)
+        for emitter in self.click_emitters:
+            emitter.draw()
+
         # Эффекты зелий
-        if self.battle_player.damage_multiplier_turns > 0:
+        if (hasattr(self.battle_player, 'damage_multiplier_turns') and
+                self.battle_player.damage_multiplier_turns > 0):
             multiplier_text = arcade.Text(
                 f"Урон x{self.battle_player.damage_multiplier:.1f} ({self.battle_player.damage_multiplier_turns} ход.)",
-                50,
-                self.SCREEN_HEIGHT - 120,
-                arcade.color.WHITE,
-                16
-            )
+                50, self.SCREEN_HEIGHT - 120,
+                arcade.color.WHITE, 16)
             multiplier_text.draw()
+
         if hasattr(self, 'potion_effect_text') and self.potion_message_timer > 0:
             self.potion_effect_text.draw()
 
         # Текстовая информация
-        self.player_hp_text.value = (
-            f"{self.battle_player.name} HP: {self.battle_player.current_hp}/{self.battle_player.max_hp} | "
-            f"Блок: {self.battle_player.block}")
-        self.player_hp_text.draw()
+        if self.battle_player:
+            self.player_hp_text.value = (
+                f"{self.battle_player.name} HP: {self.battle_player.current_hp}/{self.battle_player.max_hp} | "
+                f"Блок: {self.battle_player.block}")
+            self.player_hp_text.draw()
 
-        self.player_level_text.value = (
-            f"Уровень: {self.battle_player.level} | "
-            f"Опыт: {self.battle_player.experience}/{self.battle_player.experience_to_next_level}")
-        self.player_level_text.draw()
+            self.player_level_text.value = (
+                f"Уровень: {self.battle_player.level} | "
+                f"Опыт: {self.battle_player.experience}/{self.battle_player.experience_to_next_level}")
+            self.player_level_text.draw()
+
         self.turn_text.value = f"Ход: {'Игрок' if self.battle_turn == 'player' else 'Враг'}"
         self.turn_text.draw()
 
     def draw_battle_win(self):
-        arcade.set_background_color(arcade.color.DARK_SLATE_GRAY)
+        """Отрисовка экрана победы"""
+        arcade.set_background_color(arcade.color.BLACK)
         self.win_text.draw()
         self.experience_gained_text.value = f"+{self.gained_experience} опыта"
         self.experience_gained_text.draw()
+
         if self.levels_gained > 0:
             level_up_text = arcade.Text(
                 f"НОВЫЙ УРОВЕНЬ {self.battle_player.level}!",
@@ -378,48 +493,77 @@ class BattleWindow(arcade.View):
                 arcade.color.GREEN, 32,
                 anchor_x="center", anchor_y="center")
             level_up_text.draw()
+
         self.return_text.draw()
 
     def draw_battle_lose(self):
-        arcade.set_background_color(arcade.color.DARK_SLATE_GRAY)
+        """Отрисовка экрана поражения"""
+        arcade.set_background_color(arcade.color.BLACK)
         self.lose_text.draw()
+
+        # Карта времени (используем кэшированную текстуру)
         time_card_spritelist = arcade.SpriteList()
-        time_card = arcade.Sprite("images/cards/time_card.jpg")
+        if self.time_card_texture:
+            time_card = arcade.Sprite(self.time_card_texture)
+        else:
+            time_card = arcade.SpriteSolidColor(
+                self.ACTUAL_CARD_WIDTH * 2,
+                self.ACTUAL_CARD_HEIGHT * 2,
+                arcade.color.BLUE
+            )
+
         time_card.width = self.ACTUAL_CARD_WIDTH * 2
         time_card.height = self.ACTUAL_CARD_HEIGHT * 2
         time_card.center_x = self.SCREEN_WIDTH // 2
         time_card.center_y = self.SCREEN_HEIGHT // 2
         time_card_spritelist.append(time_card)
         time_card_spritelist.draw()
+
         self.return_text.value = "Нет, я не погибну здесь!.."
         self.return_text.draw()
 
     def on_update(self, delta_time):
+        """Обновление состояния"""
         if self.game_state == "battle":
             self.update_battle(delta_time)
 
     def update_battle(self, delta_time):
+        """Обновление битвы"""
+        # Ход врага
         if self.battle_turn == "enemy":
             self.battle_timer += delta_time
             if self.battle_timer >= 1.0:
                 self.enemy_attack()
                 self.battle_timer = 0
                 self.battle_turn = "player"
-        # Обновляем таймер сообщения о зелье
+
+        # Таймер сообщения о зелье
         if hasattr(self, 'potion_message_timer'):
             self.potion_message_timer -= delta_time
             if self.potion_message_timer <= 0:
                 self.potion_message_timer = 0
-        # Применяем эффекты зелий каждый ход
+
+        # Эффекты зелий
         if self.battle_player:
             self.battle_player.apply_potion_effects(delta_time)
 
+        # Обновляем эмиттеры частиц
+        emitters_to_remove = []
+        for emitter in self.click_emitters:
+            emitter.update(delta_time)
+            if emitter.can_reap():
+                emitters_to_remove.append(emitter)
+
+        # Удаляем завершенные эмиттеры
+        for emitter in emitters_to_remove:
+            self.click_emitters.remove(emitter)
+
     def on_key_press(self, key, modifiers):
+        """Обработка нажатий клавиш"""
         if key == arcade.key.ESCAPE:
             if self.game_state == "lose":
                 arcade.close_window()
             elif self.game_state == "battle":
-                # Возвращаемся в мир
                 if self.return_callback:
                     self.return_callback(self.player, enemy_defeated=False)
             return
@@ -432,6 +576,7 @@ class BattleWindow(arcade.View):
             self.on_key_press_battle_lose(key, modifiers)
 
     def on_key_press_battle(self, key, modifiers):
+        """Нажатия клавиш в битве"""
         if key == arcade.key.SPACE and self.battle_turn == "player":
             if self.enemy_attack():
                 return
@@ -447,18 +592,22 @@ class BattleWindow(arcade.View):
             self.battle_turn = "player"
 
     def on_key_press_battle_win(self, key, modifiers):
+        """Нажатия клавиш при победе"""
         if key == arcade.key.SPACE:
-            # Сохраняем игру и возвращаемся в мир
+            self.cleanup_sprites()
             if self.db and self.player:
                 self.player.save_to_db(self.db)
             if self.return_callback:
                 self.return_callback(self.player, enemy_defeated=True, enemy_exp_value=self.enemy_exp_value)
 
-    def on_key_press_battle_lose(self, key, modifiers):
-        if key == arcade.key.ESCAPE:
-            arcade.close_window()
-
     def on_mouse_press(self, x, y, button, modifiers):
+        """Обработка кликов мыши"""
+        if button == arcade.MOUSE_BUTTON_LEFT:
+            # Создаем желтые частицы при ЛЮБОМ клике в режиме битвы
+            if self.game_state == "battle":
+                emitter = self.create_yellow_particles(x, y)
+                self.click_emitters.append(emitter)
+
         if self.game_state == "lose":
             card_center_x = self.SCREEN_WIDTH // 2
             card_center_y = self.SCREEN_HEIGHT // 2 - 100
@@ -468,8 +617,10 @@ class BattleWindow(arcade.View):
             right = card_center_x + card_width / 2
             top = card_center_y + card_height / 2
             bottom = card_center_y - card_height / 2
+
             if left <= x <= right and bottom <= y <= top:
                 if self.return_callback:
+                    self.cleanup_sprites()
                     self.player.current_hp = self.player.max_hp
                     self.return_callback(self.player, enemy_defeated=False, respawn=True)
             return
@@ -477,24 +628,31 @@ class BattleWindow(arcade.View):
         if self.game_state != "battle":
             return
 
-        clicked_deck = arcade.get_sprites_at_point((x, y), self.deck_spritelist)
-        if clicked_deck:
-            if len(self.battle_player.hand) < 6:
-                if self.battle_player.add_random_card():
-                    self.position_cards()
-            return
+        # Клик по колоде
+        if self.deck_spritelist:
+            clicked_deck = arcade.get_sprites_at_point((x, y), self.deck_spritelist)
+            if clicked_deck:
+                if self.battle_player and len(self.battle_player.hand) < 6:
+                    if self.battle_player.add_random_card():
+                        self.position_cards()
+                return
 
         if self.battle_turn != "player":
             return
 
-        for i in range(len(self.battle_player.hand) - 1, -1, -1):
-            card = self.battle_player.hand[i]
-            sprite = card.sprite
-            left = sprite.center_x - self.ACTUAL_CARD_WIDTH / 2
-            right = sprite.center_x + self.ACTUAL_CARD_WIDTH / 2
-            bottom = sprite.center_y - self.ACTUAL_CARD_HEIGHT / 2
-            top = sprite.center_y + self.ACTUAL_CARD_HEIGHT / 2
-            if left <= x <= right and bottom <= y <= top:
-                self.battle_player.selected_card = card
-                self.play_card(card)
-                break
+        # Клик по картам
+        if hasattr(self.battle_player, 'hand'):
+            for i in range(len(self.battle_player.hand) - 1, -1, -1):
+                card = self.battle_player.hand[i]
+                if hasattr(card, 'sprite') and card.sprite:
+                    sprite = card.sprite
+                    left = sprite.center_x - self.ACTUAL_CARD_WIDTH / 2
+                    right = sprite.center_x + self.ACTUAL_CARD_WIDTH / 2
+                    bottom = sprite.center_y - self.ACTUAL_CARD_HEIGHT / 2
+                    top = sprite.center_y + self.ACTUAL_CARD_HEIGHT / 2
+
+                    if left <= x <= right and bottom <= y <= top:
+                        if hasattr(self.battle_player, 'selected_card'):
+                            self.battle_player.selected_card = card
+                        self.play_card(card)
+                        break
