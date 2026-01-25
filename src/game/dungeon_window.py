@@ -26,7 +26,7 @@ class DungeonWindow(arcade.View):
                  player=None):
 
         super().__init__()
-        arcade.set_background_color(arcade.color.DARK_SLATE_GRAY)
+        arcade.set_background_color(arcade.color.BLACK)
 
         # Сохраняем константы
         self.SCREEN_WIDTH = screen_width
@@ -48,7 +48,7 @@ class DungeonWindow(arcade.View):
         # Основной объект игрока
         self.player = player
 
-        # Флаг для золота (чтобы дать опыт один раз)
+        # Флаг для золота
         self.gold_collected = False
 
         # Музыка подземелья
@@ -82,7 +82,7 @@ class DungeonWindow(arcade.View):
                 experience_to_next_level=100)
 
             if not self.player.load_from_db(self.db):
-                print("Создан новый персонаж Player")
+                pass
             else:
                 print(f"Загружен сохраненный персонаж: {self.player.name} (Ур.{self.player.level})")
 
@@ -100,20 +100,14 @@ class DungeonWindow(arcade.View):
 
     def play_dungeon_music(self):
         """Запускает музыку для подземелья"""
-        try:
-            self.stop_music()
-            sound = arcade.load_sound("dungeon_melody.mp3")
-            if sound:
-                self.music_player = sound.play(volume=self.music_volume, loop=True)
-                print("Музыка подземелья запущена")
-        except:
-            print("Не удалось загрузить музыку подземелья")
-            self.music_player = None
+        self.stop_music()
+        sound = arcade.load_sound("assets/dungeon_melody.mp3")
+        self.music_player = sound.play(volume=self.music_volume, loop=True)
 
     def stop_music(self):
         """Останавливает музыку"""
         if self.music_player:
-            self.music_player.stop()
+            arcade.stop_sound(self.music_player)
             self.music_player = None
 
     def on_show_view(self):
@@ -249,12 +243,6 @@ class DungeonWindow(arcade.View):
                 enemy_type="goblin")
             self.enemy_sprites.append(enemy)
 
-        print(
-            f"Создано врагов в подземелье: Призраков - {len([e for e in self.enemy_sprites if e.enemy_type == 'ghost'])}, "
-            f"Минотавров - {len([e for e in self.enemy_sprites if e.enemy_type == 'minotaur'])}, "
-            f"Мастеров карт - {len([e for e in self.enemy_sprites if e.enemy_type == 'card_master'])}, "
-            f"Темных гоблинов - {len([e for e in self.enemy_sprites if e.enemy_type == 'goblin'])}")
-
     def create_gold_tiles(self):
         """Создание золотых тайлов"""
         self.gold_sprites.clear()
@@ -270,7 +258,6 @@ class DungeonWindow(arcade.View):
                         arcade.color.YELLOW, 14),
             arcade.Text("ESC - выход, F5 - сохранить игру", 10, self.SCREEN_HEIGHT - 105,
                         arcade.color.WHITE, 14)]
-
         # Отображение характеристик игрока
         self.world_player_stats_text = arcade.Text(
             "",
@@ -332,7 +319,7 @@ class DungeonWindow(arcade.View):
             self.gold_collected = True
             # Даем +5 уровней
             for _ in range(5):
-                 self.player.level_up()
+                self.player.level_up()
             # Удаляем золотые тайлы
             for gold in gold_hits:
                 self.gold_sprites.remove(gold)
@@ -343,22 +330,40 @@ class DungeonWindow(arcade.View):
 
     def draw_dungeon(self):
         self.world_camera.use()
-        # Отрисовываем слои из карты
         self.scene["floor"].draw()
+
         if not self.gold_collected:
             self.gold_sprites.draw()
-        # Отрисовываем врагов и игрока
+        draw_radius = 800
+
         enemies_to_remove = []
+        visible_enemies = arcade.SpriteList()
+
         for enemy in self.enemy_sprites:
             if not enemy.is_alive:
                 enemies_to_remove.append(enemy)
-        self.enemy_sprites.draw()
+            else:
+                dx = abs(self.world_player.center_x - enemy.center_x)
+                dy = abs(self.world_player.center_y - enemy.center_y)
+                distance_squared = dx * dx + dy * dy
+                if distance_squared < draw_radius * draw_radius:
+                    visible_enemies.append(enemy)
+
+        # Рисуем всех видимых врагов одним вызовом
+        visible_enemies.draw()
+
+        # Рисуем игрока
         self.world_player_sprite_list.draw()
+
         self.gui_camera.use()
+
+        # Удаляем побежденных врагов
         for enemy in enemies_to_remove:
             enemy.remove_from_sprite_lists()
+
         for text in self.world_instruction_texts:
             text.draw()
+
         self.world_player_stats_text.value = (
             f"Имя: {self.player.name} | "
             f"Уровень: {self.player.level} | "
@@ -366,6 +371,7 @@ class DungeonWindow(arcade.View):
             f"HP: {self.player.current_hp}/{self.player.max_hp} | "
             f"Подземелье")
         self.world_player_stats_text.draw()
+
         # Показываем сообщение о золоте
         if self.gold_collected:
             gold_text = arcade.Text(
@@ -386,6 +392,7 @@ class DungeonWindow(arcade.View):
         new_direction = None
         self.world_player.dx = 0
         self.world_player.dy = 0
+
         if arcade.key.W in self.keys_pressed:
             self.world_player.dy += 1
             new_direction = 'up'
@@ -410,7 +417,9 @@ class DungeonWindow(arcade.View):
         if arcade.key.RIGHT in self.keys_pressed:
             self.world_player.dx += 1
             new_direction = 'right'
+
         self.world_player.is_walking = (self.world_player.dx != 0 or self.world_player.dy != 0)
+
         if new_direction and new_direction != self.world_player.current_direction:
             self.world_player.current_direction = new_direction
             self.world_player.set_texture_by_direction(self.world_player.current_direction, 0)
@@ -434,19 +443,38 @@ class DungeonWindow(arcade.View):
         self.world_player.center_y += self.world_player.dy * self.world_player.speed * delta_time
         # Обновление движка
         self.physics_engine.update()
-        # Обновление анимации врагов
+        # Обновление анимации только видимых врагов
+        visible_right = self.world_player.center_x + self.SCREEN_WIDTH
+        visible_top = self.world_player.center_y + self.SCREEN_HEIGHT
         for enemy in self.enemy_sprites:
             if enemy.is_alive:
-                enemy.update_animation(delta_time)
-        # Проверка столкновений с врагами
-        enemies_hit = arcade.check_for_collision_with_list(self.world_player, self.enemy_sprites)
-        for enemy in enemies_hit:
+                # Проверяем, находится ли враг в видимой области
+                enemy_left = enemy.center_x - enemy.enemy_radius * 2
+                enemy_right = enemy.center_x + enemy.enemy_radius * 2
+                enemy_bottom = enemy.center_y - enemy.enemy_radius * 2
+                enemy_top = enemy.center_y + enemy.enemy_radius * 2
+                if (enemy_right > self.world_player.center_x - 600 and enemy_left < visible_right + 600 and
+                        enemy_top > self.world_player.center_y - 400 and enemy_bottom < visible_top + 400):
+                    enemy.update_animation(delta_time)
+        nearby_enemies = arcade.SpriteList()
+        for enemy in self.enemy_sprites:
             if enemy.is_alive:
-                enemy.is_alive = False
-                self.start_battle(enemy)
-                return
+                distance_x = abs(self.world_player.center_x - enemy.center_x)
+                distance_y = abs(self.world_player.center_y - enemy.center_y)
+                if distance_x < 300 and distance_y < 300:
+                    nearby_enemies.append(enemy)
+
+        if nearby_enemies:
+            enemies_hit = arcade.check_for_collision_with_list(self.world_player, nearby_enemies)
+            for enemy in enemies_hit:
+                if enemy.is_alive:
+                    enemy.is_alive = False
+                    self.start_battle(enemy)
+                    return
+
         # Проверка столкновений с золотом
         self.check_gold_collision()
+
         # Обновление камеры
         self.update_camera(delta_time)
 
