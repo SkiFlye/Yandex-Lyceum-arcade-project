@@ -398,7 +398,6 @@ class BattleWindow(arcade.View):
         if self.battle_enemy.current_hp <= 0:
             exp_gained = self.enemy_exp_value
             new_exp, levels_gained = self.battle_player.add_experience(exp_gained)
-            self.gained_experience = exp_gained
             self.levels_gained = levels_gained
             self.game_state = "win"
             return
@@ -483,7 +482,7 @@ class BattleWindow(arcade.View):
         """Отрисовка экрана победы"""
         arcade.set_background_color(arcade.color.BLACK)
         self.win_text.draw()
-        self.experience_gained_text.value = f"+{self.gained_experience} опыта"
+        self.experience_gained_text.value = f"+{self.enemy_exp_value} опыта"
         self.experience_gained_text.draw()
 
         if self.levels_gained > 0:

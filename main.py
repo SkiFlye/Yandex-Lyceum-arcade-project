@@ -38,7 +38,7 @@ def main():
     window = arcade.Window(
         width=1200,
         height=800,
-        title="Карточный Рогалик"
+        title="Fate Deck"
     )
     main_view = MainWindow()
     main_view.setup()

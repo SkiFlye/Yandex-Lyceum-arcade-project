@@ -189,7 +189,7 @@ class GameWorldWindow(arcade.View):
         if "necromancer's_spawn" in self.scene:
             for spawn_point in self.scene["necromancer's_spawn"]:
                 enemy_level = 10
-                enemy_name = "Некромант"
+                enemy_name = "Некромант (низший)"
                 enemy = WorldEnemy(
                     name=enemy_name,
                     level=enemy_level,

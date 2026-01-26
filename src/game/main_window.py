@@ -93,7 +93,7 @@ class MainWindow(arcade.View):
 
         # Заголовок
         title = arcade.Text(
-            "КАРТОЧНЫЙ РОГАЛИК",
+            "Fate Deck",
             self.window.width // 2,
             self.window.height - 100,
             arcade.color.GOLD,
@@ -156,7 +156,7 @@ class MainWindow(arcade.View):
             height=40,
             text="",
             font_size=18,
-            password_char="*"  # Скрывает ввод пароля
+            password_char="*"
         )
         self.ui_manager.add(self.password_input)
 
@@ -408,7 +408,7 @@ class MainWindow(arcade.View):
             if isinstance(element, arcade.Text):
                 element.draw()
         if self.error_message:
-            arcade.draw_text(
+            error_text = arcade.Text(
                 self.error_message,
                 self.window.width // 2,
                 self.window.height - 180,
@@ -417,6 +417,7 @@ class MainWindow(arcade.View):
                 anchor_x="center",
                 anchor_y="center",
                 bold=True)
+            error_text.draw()
         self.ui_manager.draw()
 
     def on_key_press(self, key, modifiers):

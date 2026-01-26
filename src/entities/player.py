@@ -172,7 +172,7 @@ class Player:
 
     def save_to_db(self, db):
         """Сохранение игрока в базу данных"""
-        db.save_player(
+        db.save_player(self.name,
             self.level,
             self.experience,
             self.experience_to_next_level,
