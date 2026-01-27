@@ -586,7 +586,7 @@ class DungeonWindow(arcade.View):
                     enemy_id = id(enemy)
                     if enemy_id in self.enemy_emitters:
                         self.enemy_emitters[enemy_id].update(delta_time)
-                        
+
         # Проверка столкновений только с близкими врагами
         nearby_enemies = arcade.SpriteList()
         for enemy in self.enemy_sprites:
