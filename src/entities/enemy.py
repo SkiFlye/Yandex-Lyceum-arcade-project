@@ -27,6 +27,9 @@ class Enemy:
         elif enemy_type == "card_master":
             base_hp = 500
             self.scale = 0.5
+        elif enemy_type == "trader":
+            base_hp = 9999999
+            self.scale = 0.4
         else:
             base_hp = 50
             self.scale = 0.4
@@ -47,34 +50,30 @@ class Enemy:
             attack_base = 3.0
         elif enemy_type == "card_master":
             attack_base = 4.0
+        elif enemy_type == "trader":
+            attack_base = 0.0
         else:
             attack_base = 1.0
-
         self.attack_power = attack_base + (level - 1) * 0.5
         self.center_x = enemy_center_x
         self.center_y = enemy_center_y
         self.radius = enemy_radius
-
         # Загружаем текстуры для анимации
         self.textures = []
         self.load_animation_textures()
-
         # Создаем спрайт и SpriteList
         self.sprite = arcade.Sprite()
         self.sprite.texture = self.textures[0]
         self.sprite.scale = self.scale
         self.sprite.center_x = enemy_center_x
         self.sprite.center_y = enemy_center_y
-
         # SpriteList для отрисовки
         self.sprite_list = arcade.SpriteList()
         self.sprite_list.append(self.sprite)
-
         # Параметры анимации
         self.animation_timer = 0
         self.animation_speed = 0.3
         self.current_frame = 0
-
         # Текстовые объекты
         self.hp_text = None
         self.level_text = None
@@ -85,14 +84,12 @@ class Enemy:
         # Загружаем два кадра для анимации
         texture1 = arcade.load_texture(f"images/enemies/{self.enemy_type}/{self.enemy_type}_1.jpg")
         texture2 = arcade.load_texture(f"images/enemies/{self.enemy_type}/{self.enemy_type}_2.jpg")
-
         self.textures.append(texture1)
         self.textures.append(texture2)
 
     def update_animation(self, delta_time):
         """Обновляет анимацию врага"""
         self.animation_timer += delta_time
-
         if self.animation_timer >= self.animation_speed:
             self.animation_timer = 0
             self.current_frame = (self.current_frame + 1) % len(self.textures)
@@ -169,7 +166,8 @@ class WorldEnemy(arcade.Sprite):
             "necromancer": 0.2,
             "ghost": 0.12,
             "minotaur": 0.25,
-            "card_master": 0.18}
+            "card_master": 0.18,
+            "trader": 0.15}
         return scales.get(self.enemy_type, 0.2)
 
     def load_animation_textures(self):
@@ -179,6 +177,7 @@ class WorldEnemy(arcade.Sprite):
         texture2 = arcade.load_texture(f"images/enemies/{self.enemy_type}/{self.enemy_type}_2.jpg")
         self.textures.append(texture1)
         self.textures.append(texture2)
+
     def update_animation(self, delta_time):
         """Обновляет анимацию врага"""
         self.animation_timer += delta_time
@@ -187,24 +186,8 @@ class WorldEnemy(arcade.Sprite):
             self.current_frame = (self.current_frame + 1) % len(self.textures)
             self.texture = self.textures[self.current_frame]
 
-    def update_text_position(self, camera_x, camera_y):
-        """Обновляет позицию текста относительно камеры"""
-        if not self.is_alive:
-            return
-        screen_x = self.center_x - camera_x
-        screen_y = self.center_y - camera_y
-        # Обновляем позицию текста
-        self.name_text.x = screen_x
-        self.name_text.y = screen_y + self.enemy_radius + 100
-
     def destroy(self):
         """Уничтожение врага"""
         self.is_alive = False
-        # Помечаем спрайт для удаления из SpriteList
         if self in self.sprite_lists:
             self.remove_from_sprite_lists()
-
-    def draw_name(self):
-        """Рисует имя врага"""
-        if self.is_alive:
-            self.name_text.draw()
