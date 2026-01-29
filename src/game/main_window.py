@@ -7,40 +7,31 @@ from src.game.game_world_window import GameWorldWindow
 
 class MainWindow(arcade.View):
     """Главное окно с меню авторизации и регистрации"""
-
     def __init__(self):
         super().__init__()
-
         # UI Manager
         self.ui_manager = UIManager()
-
         # Состояния
         self.current_screen = "auth"
         self.error_message = ""
         self.info_message = ""
-
         # Данные для авторизации
         self.username = ""
         self.password = ""
-
         # Элементы UI
         self.name_input = None
         self.password_input = None
         self.buttons = []
-
         # UI элементы для хранения
         self.ui_elements = []
-
         # Фон меню
         self.background = None
-
         # Размеры окна
         self.SCREEN_WIDTH = 1200
         self.SCREEN_HEIGHT = 800
-
         # Музыка
         self.music_player = None
-        self.music_volume = 0.3  # Громкость музыки (0.0 до 1.0)
+        self.music_volume = 0.3
 
     def setup(self):
         """Настройка окна меню"""
@@ -77,7 +68,6 @@ class MainWindow(arcade.View):
         """Очищает все UI элементы"""
         # Очищаем менеджер UI
         self.ui_manager.clear()
-
         # Очищаем ссылки
         self.name_input = None
         self.password_input = None
@@ -90,7 +80,6 @@ class MainWindow(arcade.View):
         self.current_screen = "auth"
         self.error_message = ""
         self.info_message = ""
-
         # Заголовок
         title = arcade.Text(
             "Fate Deck",
@@ -99,10 +88,8 @@ class MainWindow(arcade.View):
             arcade.color.GOLD,
             40,
             anchor_x="center",
-            anchor_y="center"
-        )
+            anchor_y="center")
         self.ui_elements.append(title)
-
         # Подзаголовок
         subtitle = arcade.Text(
             "Авторизация",
@@ -111,10 +98,8 @@ class MainWindow(arcade.View):
             arcade.color.WHITE,
             24,
             anchor_x="center",
-            anchor_y="center"
-        )
+            anchor_y="center")
         self.ui_elements.append(subtitle)
-
         # Поле для имени
         name_label = arcade.Text(
             "Имя героя:",
@@ -123,20 +108,16 @@ class MainWindow(arcade.View):
             arcade.color.WHITE,
             20,
             anchor_x="center",
-            anchor_y="center"
-        )
+            anchor_y="center")
         self.ui_elements.append(name_label)
-
         self.name_input = UIInputText(
             x=self.window.width // 2 - 150,
             y=self.window.height - 270,
             width=400,
             height=40,
             text="",
-            font_size=18
-        )
+            font_size=18)
         self.ui_manager.add(self.name_input)
-
         # Поле для пароля
         password_label = arcade.Text(
             "Пароль:",
@@ -145,8 +126,7 @@ class MainWindow(arcade.View):
             arcade.color.WHITE,
             20,
             anchor_x="center",
-            anchor_y="center"
-        )
+            anchor_y="center")
         self.ui_elements.append(password_label)
 
         self.password_input = UIInputText(
@@ -156,10 +136,8 @@ class MainWindow(arcade.View):
             height=40,
             text="",
             font_size=18,
-            password_char="*"
-        )
+            password_char="*")
         self.ui_manager.add(self.password_input)
-
         # Кнопка "Войти"
         login_button = UITextureButton(
             x=self.window.width // 2 - 220,
@@ -167,12 +145,10 @@ class MainWindow(arcade.View):
             width=200,
             height=50,
             text="Войти",
-            font_size=20
-        )
+            font_size=20)
         login_button.on_click = self.on_login_click
         self.ui_manager.add(login_button)
         self.buttons.append(login_button)
-
         # Кнопка "Создать героя"
         create_button = UITextureButton(
             x=self.window.width // 2 + 20,
@@ -180,12 +156,10 @@ class MainWindow(arcade.View):
             width=200,
             height=50,
             text="Создать героя",
-            font_size=20
-        )
+            font_size=20)
         create_button.on_click = self.on_create_click
         self.ui_manager.add(create_button)
         self.buttons.append(create_button)
-
         # Кнопка "Выход"
         exit_button = UITextureButton(
             x=self.window.width // 2 - 100,
@@ -193,8 +167,7 @@ class MainWindow(arcade.View):
             width=200,
             height=50,
             text="Выход",
-            font_size=20
-        )
+            font_size=20)
         exit_button.on_click = self.on_exit_click
         self.ui_manager.add(exit_button)
         self.buttons.append(exit_button)
@@ -205,7 +178,6 @@ class MainWindow(arcade.View):
         self.current_screen = "menu"
         self.error_message = ""
         self.info_message = f"Добро пожаловать, {self.username}!"
-
         # Заголовок
         title = arcade.Text(
             "ГЛАВНОЕ МЕНЮ",
@@ -214,10 +186,8 @@ class MainWindow(arcade.View):
             arcade.color.GOLD,
             40,
             anchor_x="center",
-            anchor_y="center"
-        )
+            anchor_y="center")
         self.ui_elements.append(title)
-
         # Приветствие
         welcome_text = arcade.Text(
             self.info_message,
@@ -226,10 +196,8 @@ class MainWindow(arcade.View):
             arcade.color.GREEN,
             24,
             anchor_x="center",
-            anchor_y="center"
-        )
+            anchor_y="center")
         self.ui_elements.append(welcome_text)
-
         # Кнопка "Начать игру"
         start_button = UITextureButton(
             x=self.window.width // 2 - 150,
@@ -237,12 +205,10 @@ class MainWindow(arcade.View):
             width=300,
             height=60,
             text="Начать игру",
-            font_size=24
-        )
+            font_size=24)
         start_button.on_click = self.on_start_game_click
         self.ui_manager.add(start_button)
         self.buttons.append(start_button)
-
         # Кнопка "Выйти из аккаунта"
         logout_button = UITextureButton(
             x=self.window.width // 2 - 150,
@@ -250,26 +216,19 @@ class MainWindow(arcade.View):
             width=300,
             height=60,
             text="Выйти из аккаунта",
-            font_size=24
-        )
+            font_size=24)
         logout_button.on_click = self.on_logout_click
         self.ui_manager.add(logout_button)
         self.buttons.append(logout_button)
 
     def check_hero_exists(self, username, password):
-        """
-        Проверяет существование героя и правильность пароля.
-        Использует базу данных SQLite.
-        """
+        """Проверяет существование героя и правильность пароля. Использует базу данных SQLite."""
         conn = sqlite3.connect("data/game_save.db")
         cursor = conn.cursor()
-
         # Проверяем существование героя и пароль
         cursor.execute("SELECT name, password FROM passwords WHERE name = ?", (username,))
         result = cursor.fetchone()
-
         conn.close()
-
         if result:
             stored_name, stored_password = result
             if stored_password == password:
@@ -280,24 +239,19 @@ class MainWindow(arcade.View):
             return "not_found"
 
     def create_hero(self, username, password):
-        """
-        Создает нового героя.
-        """
+        """Создает нового героя."""
         conn = sqlite3.connect("data/game_save.db")
         cursor = conn.cursor()
-
         # Создаем таблицу если её нет
         cursor.execute('''CREATE TABLE IF NOT EXISTS passwords (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             name TEXT UNIQUE NOT NULL,
                             password TEXT NOT NULL)''')
-
         # Пытаемся добавить нового игрока
         try:
             cursor.execute(
                 "INSERT INTO passwords (name, password) VALUES (?, ?)",
-                (username, password)
-            )
+                (username, password))
             conn.commit()
             conn.close()
             return True, "Герой успешно создан!"
@@ -309,13 +263,10 @@ class MainWindow(arcade.View):
         """Обработчик кнопки 'Войти'"""
         self.username = self.name_input.text.strip()
         self.password = self.password_input.text.strip()
-
         if not self.username or not self.password:
             self.error_message = "Заполните все поля!"
             return
-
         result = self.check_hero_exists(self.username, self.password)
-
         if result == "success":
             self.setup_menu_screen()
         elif result == "wrong_password":
@@ -327,11 +278,9 @@ class MainWindow(arcade.View):
         """Обработчик кнопки 'Создать героя'"""
         self.username = self.name_input.text.strip()
         self.password = self.password_input.text.strip()
-
         if not self.username or not self.password:
             self.error_message = "Заполните все поля!"
             return
-
         # Проверяем длину имени
         if len(self.username) < 3:
             self.error_message = "Имя должно содержать минимум 3 символа!"
@@ -340,15 +289,12 @@ class MainWindow(arcade.View):
         if len(self.username) > 20:
             self.error_message = "Имя должно содержать максимум 20 символов!"
             return
-
         # Проверяем длину пароля
         if len(self.password) < 4:
             self.error_message = "Пароль должен содержать минимум 4 символа!"
             return
-
         # Создаем героя
         success, message = self.create_hero(self.username, self.password)
-
         if success:
             self.info_message = message
             self.setup_menu_screen()
@@ -359,10 +305,7 @@ class MainWindow(arcade.View):
         """Обработчик кнопки 'Начать игру'"""
         # Останавливаем музыку главного меню
         self.stop_music()
-
-        # ВАЖНО: Отключаем UI менеджер перед переходом
         self.ui_manager.disable()
-
         # Создаем окно игры с именем авторизованного пользователя
         game_view = GameWorldWindow(
             screen_width=1200,

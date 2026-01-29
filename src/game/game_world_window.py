@@ -140,7 +140,6 @@ class GameWorldWindow(arcade.View):
         self.physics_engine = arcade.PhysicsEngineSimple(
             self.world_player,
             self.scene["collision"])
-
         self.create_world_text_objects()
 
     def create_world_text_objects(self):
@@ -196,15 +195,13 @@ class GameWorldWindow(arcade.View):
                     center_x=spawn_point.center_x,
                     center_y=spawn_point.center_y,
                     enemy_radius=self.ENEMY_RADIUS,
-                    enemy_type="necromancer"
-                )
+                    enemy_type="necromancer")
                 self.enemy_sprites.append(enemy)
 
     def start_battle(self, enemy_sprite):
         """Начинает битву с выбранным врагом"""
         # Останавливаем музыку мира
         self.stop_music()
-
         # Создаем окно битвы
         battle_window = BattleWindow(
             screen_width=self.SCREEN_WIDTH,
@@ -214,8 +211,7 @@ class GameWorldWindow(arcade.View):
             base_damage_per_level=self.BASE_DAMAGE_PER_LEVEL,
             base_block_per_level=self.BASE_BLOCK_PER_LEVEL,
             db=self.db,
-            return_callback=self.return_from_battle
-        )
+            return_callback=self.return_from_battle)
         battle_window.setup()
         self.window.show_view(battle_window)
 
@@ -240,7 +236,6 @@ class GameWorldWindow(arcade.View):
 
             if enemy_sprite_to_remove:
                 self.enemy_sprites.remove(enemy_sprite_to_remove)
-
         # Возвращаемся в мир и запускаем музыку
         self.window.show_view(self)
         self.play_world_music()
@@ -259,23 +254,18 @@ class GameWorldWindow(arcade.View):
         self.scene["cave"].draw()
         self.scene["cave_entrance"].draw()
         self.scene["cemetery"].draw()
-
         cam_x, cam_y = self.world_camera.position
         enemies_to_remove = []
         for enemy in self.enemy_sprites:
             if not enemy.is_alive:
                 enemies_to_remove.append(enemy)
-
         self.enemy_sprites.draw()
         self.world_player_sprite_list.draw()
-
         self.gui_camera.use()
         for enemy in enemies_to_remove:
             enemy.remove_from_sprite_lists()
-
         for text in self.world_instruction_texts:
             text.draw()
-
         self.world_player_stats_text.value = (
             f"Имя: {self.player.name} | "
             f"Уровень: {self.player.level} | "
@@ -290,7 +280,6 @@ class GameWorldWindow(arcade.View):
         new_direction = None
         self.world_player.dx = 0
         self.world_player.dy = 0
-
         if arcade.key.W in self.keys_pressed:
             self.world_player.dy += 1
             new_direction = 'up'
@@ -315,14 +304,11 @@ class GameWorldWindow(arcade.View):
         if arcade.key.RIGHT in self.keys_pressed:
             self.world_player.dx += 1
             new_direction = 'right'
-
         self.world_player.is_walking = (self.world_player.dx != 0 or self.world_player.dy != 0)
-
         if new_direction and new_direction != self.world_player.current_direction:
             self.world_player.current_direction = new_direction
             self.world_player.set_texture_by_direction(self.world_player.current_direction, 0)
             self.world_player.walk_frame = 0
-
         if self.world_player.is_walking:
             current_time = time.time()
             if current_time - self.world_player.last_walk_time > self.world_player.walk_frame_duration:
@@ -332,27 +318,22 @@ class GameWorldWindow(arcade.View):
                                                            self.world_player.walk_frame)
         else:
             self.world_player.set_texture_by_direction(self.world_player.current_direction, 0)
-
         if self.world_player.dx != 0 and self.world_player.dy != 0:
             factor = 0.7071
             self.world_player.dx *= factor
             self.world_player.dy *= factor
-
         self.world_player.center_x += self.world_player.dx * self.world_player.speed * delta_time
         self.world_player.center_y += self.world_player.dy * self.world_player.speed * delta_time
         self.physics_engine.update()
-
         for enemy in self.enemy_sprites:
             if enemy.is_alive:
                 enemy.update_animation(delta_time)
-
         enemies_hit = arcade.check_for_collision_with_list(self.world_player, self.enemy_sprites)
         for enemy in enemies_hit:
             if enemy.is_alive:
                 enemy.is_alive = False
                 self.start_battle(enemy)
                 return
-
         cave_hits = arcade.check_for_collision_with_list(self.world_player, self.cave_entrance_sprites)
         if cave_hits:
             self.enter_dungeon()
@@ -362,7 +343,6 @@ class GameWorldWindow(arcade.View):
         """Переход в подземелье"""
         # Останавливаем музыку мира
         self.stop_music()
-
         dungeon_window = DungeonWindow(
             screen_width=self.SCREEN_WIDTH,
             screen_height=self.SCREEN_HEIGHT,
@@ -377,7 +357,6 @@ class GameWorldWindow(arcade.View):
             base_block_per_level=self.BASE_BLOCK_PER_LEVEL,
             db_name=self.DB_NAME,
             player=self.player)
-
         dungeon_window.setup()
         self.window.show_view(dungeon_window)
 
@@ -386,25 +365,20 @@ class GameWorldWindow(arcade.View):
         target_x = self.world_player.center_x
         target_y = self.world_player.center_y
         cam_center_x, cam_center_y = self.world_camera.position
-
         new_cam_center_x = cam_center_x + (target_x - cam_center_x) * self.CAMERA_LERP
         new_cam_center_y = cam_center_y + (target_y - cam_center_y) * self.CAMERA_LERP
-
         min_center_x = self.SCREEN_WIDTH / 2
         min_center_y = self.SCREEN_HEIGHT / 2
         max_center_x = self.map_right - self.SCREEN_WIDTH / 2
         max_center_y = self.map_top - self.SCREEN_HEIGHT / 2
-
         if new_cam_center_x < min_center_x:
             new_cam_center_x = min_center_x
         elif new_cam_center_x > max_center_x:
             new_cam_center_x = max_center_x
-
         if new_cam_center_y < min_center_y:
             new_cam_center_y = min_center_y
         elif new_cam_center_y > max_center_y:
             new_cam_center_y = max_center_y
-
         self.world_camera.position = (new_cam_center_x, new_cam_center_y)
         self.gui_camera.position = (self.SCREEN_WIDTH / 2, self.SCREEN_HEIGHT / 2)
 
@@ -413,7 +387,6 @@ class GameWorldWindow(arcade.View):
             self.save_game()
             arcade.close_window()
             return
-
         if key in (arcade.key.W, arcade.key.A, arcade.key.S, arcade.key.D,
                    arcade.key.UP, arcade.key.DOWN, arcade.key.LEFT, arcade.key.RIGHT):
             self.keys_pressed.add(key)

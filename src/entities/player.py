@@ -21,8 +21,10 @@ class Player:
         self.has_shield_reflection = False
         self.damage_multiplier = 1.0
         self.damage_multiplier_turns = 0  # Оставшееся количество ходов действия множителя
-        self.heal_amount = 0  # Количество восстановления здоровья
-        self.heal_turns = 0  # Оставшееся количество ходов действия лечения
+        self.heal_amount = 0
+        self.heal_turns = 0
+        self.has_shield_6 = False
+        self.trader_visited = False
 
     def calculate_max_hp(self):
         return int(self.base_max_hp + (self.level - 1) * self.base_health_per_level)
@@ -30,7 +32,6 @@ class Player:
     def add_experience(self, amount):
         """Добавляет опыт игроку"""
         self.experience += amount
-
         # Проверяем, достигнут ли новый уровень
         levels_gained = 0
         while self.experience >= self.experience_to_next_level:
@@ -38,26 +39,33 @@ class Player:
             levels_gained += 1
             if levels_gained >= 5:
                 break
-
         return self.experience, levels_gained
 
     def level_up(self):
         """Повышение уровня персонажа"""
         self.level += 1
         self.experience = max(0, self.experience - self.experience_to_next_level)
-
         # Увеличиваем необходимое количество опыта для следующего уровня
         self.experience_to_next_level = int(self.experience_to_next_level * 1.5)
-
         # Увеличиваем максимальное здоровье
         old_max_hp = self.max_hp
         self.max_hp = self.calculate_max_hp()
-
-        # Восстанавливаем часть здоровья при повышении уровня
         hp_restored = int((self.max_hp - old_max_hp) * 0.5)
         self.current_hp = min(self.max_hp, self.current_hp + hp_restored)
-
         return self.level
+
+    def level_down(self):
+        """Понижение уровня персонажа (для торговца)"""
+        if self.level > 1:
+            self.level -= 1
+            self.experience = 0
+            old_max_hp = self.max_hp
+            self.max_hp = self.calculate_max_hp()
+            hp_ratio = self.current_hp / old_max_hp if old_max_hp > 0 else 1.0
+            self.current_hp = int(self.max_hp * hp_ratio)
+            self.experience_to_next_level = 100 * self.level
+            return self.level
+        return 1
 
     def take_damage(self, amount):
         # Применяем множитель урона от зелий
@@ -79,7 +87,8 @@ class Player:
     def add_card_to_hand(self, card: Card):
         if len(self.hand) >= 6:
             return False
-
+        if card.suit == 'shield' and card.value == 6 and not self.has_shield_6:
+            return False  # Нельзя добавить shield_6, если не куплена у торговца
         for existing_card in self.hand:
             if existing_card.suit == card.suit and existing_card.value == card.value:
                 return False
@@ -98,21 +107,27 @@ class Player:
     def add_random_card(self):
         if len(self.hand) >= 6:
             return False
-
-        suits = ['sword', 'shield', 'potion']
+        suits = ['sword', 'shield', 'potion', 'charms']
         all_cards = []
-
         for suit in suits:
             if suit == 'shield':
                 values = range(2, 7)
+                for value in values:
+                    if value == 6 and not self.has_shield_6:
+                        continue
+                    all_cards.append((suit, value))
             elif suit == 'potion':
-                values = range(2, 8)  # 2-7 включительно
-            else:  # sword
+                values = range(2, 8)
+                for value in values:
+                    all_cards.append((suit, value))
+            elif suit == 'charms':
+                values = range(2, 6)
+                for value in values:
+                    all_cards.append((suit, value))
+            else:
                 values = range(2, 11)
-
-            for value in values:
-                all_cards.append((suit, value))
-
+                for value in values:
+                    all_cards.append((suit, value))
         available_cards = []
         for suit, value in all_cards:
             card_exists = False
@@ -122,12 +137,10 @@ class Player:
                     break
             if not card_exists:
                 available_cards.append((suit, value))
-
         if available_cards:
             suit, value = random.choice(available_cards)
             card = Card(suit, value)
             return self.add_card_to_hand(card)
-
         return False
 
     def get_card_effect(self, card: Card, base_damage_per_level=0.2, base_block_per_level=0.15):
@@ -137,17 +150,14 @@ class Player:
     def play_potion_card(self, card_value, player_level):
         """Обработка карты зелья с учетом уровня игрока"""
         if card_value == 2:
-            # Зелье 2 уровня: лечит на 50 здоровья * уровень игрока
             heal_amount = int(50 + (50 * player_level * 0.1))
             self.current_hp = min(self.max_hp, self.current_hp + heal_amount)
             return f"Вы выпили зелье исцеления! +{heal_amount} HP"
-
         elif 3 <= card_value <= 6:
             multiplier = 1.0 + (card_value - 2) * 0.5
             self.damage_multiplier = multiplier
             self.damage_multiplier_turns = 3
             return f"Выпито зелье силы! Урон x{multiplier:.1f} на 3 хода"
-
         elif card_value == 7:
             heal_amount = 100
             self.current_hp = min(self.max_hp, self.current_hp + heal_amount)
@@ -164,20 +174,22 @@ class Player:
         self.hand.clear()
         self.hand_sprites.clear()
         self.selected_card = None
-        # Сбрасываем эффекты зелий
         self.damage_multiplier = 1.0
         self.damage_multiplier_turns = 0
         self.heal_amount = 0
         self.heal_turns = 0
+        self.trader_visited = False
 
     def save_to_db(self, db):
         """Сохранение игрока в базу данных"""
-        db.save_player(self.name,
+        db.save_player(
+            self.name,
             self.level,
             self.experience,
             self.experience_to_next_level,
             self.max_hp,
-            self.current_hp)
+            self.current_hp,
+            has_shield_6=self.has_shield_6)
 
     def load_from_db(self, db, player_name):
         """Загрузка игрока из базы данных"""
@@ -189,8 +201,22 @@ class Player:
             self.experience_to_next_level = data['experience_to_next_level']
             self.max_hp = data['max_hp']
             self.current_hp = data['current_hp']
+            self.has_shield_6 = data['has_shield_6']
             return True
         return False
+
+    def buy_shield_6(self):
+        """Покупка карты shield_6 у торговца"""
+        if self.level >= 6:
+            for _ in range(5):
+                self.level_down()
+            self.has_shield_6 = True
+            return True
+        return False
+
+    def can_buy_shield_6(self):
+        """Может ли игрок купить shield_6"""
+        return self.level >= 6 and not self.has_shield_6
 
 
 class WorldPlayer(arcade.Sprite):
